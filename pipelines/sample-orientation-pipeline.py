@@ -121,6 +121,49 @@ class OrientationComputation :
                 result.append(formatted)
 
         return result
+    
+    def __estimate_rect_size_from_bounding_box(xmin, ymin, xmax, ymax, angle_rad):
+        
+        a = xmax - xmin
+        b = ymax - ymin
+
+        A = np.array([
+            [abs(cos(angle_rad)), abs(sin(angle_rad))],
+            [abs(sin(angle_rad)), abs(cos(angle_rad))]
+        ])
+        b_vec = np.array([a, b])
+
+        # Solve for [w, h]
+        w_h = np.linalg.solve(A, b_vec)
+        return w_h[0], w_h[1]
+    
+    def __estimate_min_distance_along_rectangle(box, distance) : 
+        
+        distances = []
+
+        for i in range(4):
+            p1 = box[i]
+            p2 = box[(i + 1) % 4]
+            # Get points along the edge
+            num_points = int(np.hypot(p2[0] - p1[0], p2[1] - p1[1]))  # length in pixels
+            if num_points == 0:
+                continue
+            x_vals = np.linspace(p1[0], p2[0], num_points)
+            y_vals = np.linspace(p1[1], p2[1], num_points)
+
+            # Clamp coordinates to stay within image bounds
+            x_vals = np.clip(x_vals, 0, distance.shape[1] - 1)
+            y_vals = np.clip(y_vals, 0, distance.shape[0] - 1)
+
+            # Sample distance values using bilinear interpolation
+            for x, y in zip(x_vals, y_vals):
+                ix, iy = int(x), int(y)
+                distances.append(float(distance[iy, ix]))
+
+        if not distances:
+            return 0.0
+
+        return float(np.mean(distances))
 
     def __process_area(self, image, yellow, blue, red, distance, x,y,sx,sy,color,index, save) :
         """
